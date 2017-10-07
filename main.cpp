@@ -21,6 +21,7 @@ int main(int argc, char* argv[])
 {
 	int s, i;
 	struct ifreq ifrq;
+	struct libnet_arp_hdr* s_arp_hdr;
 	
 	if (argc != 4)
 	{
@@ -67,8 +68,11 @@ int main(int argc, char* argv[])
 
 
 	//get sender's MAC
-	
-	
+	s_arp_hdr.ar_hrd = htons(0x1);
+	s_arp_hdr.ar_pro = htons(0x0800)
+	s_arp_hdr.ar_hln = 6;
+	s_arp_hdr.ar_pln = 4;
+	s_arp_hdr.ar_op = 1;
 
 
 
