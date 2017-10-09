@@ -11,6 +11,14 @@
 
 #define SIZE_ETHERNET 14
 
+#pragma pack(push,1)
+typedef struct ethhdr
+{
+	uint8_t ether_dhost[6];
+	uint8_t ether_shost[6];
+	uint16_t ether_type;
+}ethhdr;
+
 typedef struct arphdr
 {
         uint16_t ar_hrd;
@@ -23,6 +31,7 @@ typedef struct arphdr
         uint8_t target_mac[6];
         uint8_t target_ip[4];
 }arphdr;
+#pragma pack(pop)
 
 void usage()
 {
@@ -47,13 +56,13 @@ void make_arp_pkt(arphdr* arp_pkt, uint8_t* s_mac, uint8_t* t_mac, int op)
 		memset(arp_pkt->target_mac, 0, 6*sizeof(uint8_t));
 }
 
-void make_ether_pkt(libnet_ethernet_hdr* eth_pkt, uint8_t* dhost, uint8_t* shost, arphdr* arp_hdr)
+void make_ether_pkt(ethhdr* eth_pkt, uint8_t* dhost, uint8_t* shost, arphdr* arp_hdr)
 {
 	memcpy(eth_pkt->ether_dhost, dhost, 6*sizeof(uint8_t));
 	memcpy(eth_pkt->ether_shost, shost, 6*sizeof(uint8_t));
 	eth_pkt->ether_type=htons(0x0806);
 	
-	memcpy(eth_pkt+sizeof(struct libnet_ethernet_hdr), &arp_hdr, sizeof(struct arphdr));
+	memcpy(eth_pkt+1, &arp_hdr, sizeof(struct arphdr));
 }
 		
 
@@ -118,11 +127,11 @@ int main(int argc, char* argv[])
 	inet_pton(AF_INET, argv[2], &s_arphdr.target_ip);
 	
 	//make sender's ethernet packet
-	struct libnet_ethernet_hdr s_ethpkt;
+	struct ethhdr s_ethpkt;
 	int size;
 	memset(t_mac, 255, 6*sizeof(uint8_t));
 	make_ether_pkt(&s_ethpkt, t_mac, mymac, &s_arphdr);
-	size=sizeof(struct libnet_ethernet_hdr)+sizeof(struct arphdr);
+	size=sizeof(struct ethhdr)+sizeof(struct arphdr);
 	uint8_t* packet=(uint8_t*)malloc(size*sizeof(uint8_t));
 	memcpy(packet, &s_ethpkt, size*sizeof(uint8_t));
 
