@@ -56,7 +56,7 @@ void make_arp_pkt(arphdr* arp_pkt, uint8_t* s_mac, uint8_t* t_mac, int op)
 		memset(arp_pkt->target_mac, 0, 6*sizeof(uint8_t));
 }
 
-void make_ether_pkt(ethhdr* eth_pkt, uint8_t* dhost, uint8_t* shost, arphdr* arp_hdr)
+void make_ether_pkt(ethhdr* eth_pkt, uint8_t* dhost, uint8_t* shost, arphdr arp_hdr)
 {
 	memcpy(eth_pkt->ether_dhost, dhost, 6*sizeof(uint8_t));
 	memcpy(eth_pkt->ether_shost, shost, 6*sizeof(uint8_t));
@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
 {
 	int s, i;
 	struct ifreq ifrq;
-	struct arphdr s_arphdr, t_arphdr;
+	struct arphdr s_arphdr;
 	uint8_t* mymac=(uint8_t*)malloc(6*sizeof(uint8_t));
 	uint8_t* s_mac=(uint8_t*)malloc(6*sizeof(uint8_t));
 	uint8_t* t_mac=(uint8_t*)malloc(6*sizeof(uint8_t));
@@ -123,18 +123,18 @@ int main(int argc, char* argv[])
 	//make sender's arp packet
 	memset(t_mac, NULL, 6*sizeof(uint8_t));
 	make_arp_pkt(&s_arphdr, mymac, t_mac, 1);
-	inet_pton(AF_INET, argv[1], &s_arphdr.sender_ip);
-	inet_pton(AF_INET, argv[2], &s_arphdr.target_ip);
+	inet_pton(AF_INET, ipbuf, &s_arphdr.sender_ip);
+	inet_pton(AF_INET, argv[3], &s_arphdr.target_ip);
 	
 	//make sender's ethernet packet
 	struct ethhdr s_ethpkt;
 	int size;
 	memset(t_mac, 255, 6*sizeof(uint8_t));
-	make_ether_pkt(&s_ethpkt, t_mac, mymac, &s_arphdr);
+	make_ether_pkt(&s_ethpkt, t_mac, mymac, s_arphdr);
 	size=sizeof(struct ethhdr)+sizeof(struct arphdr);
-	uint8_t* packet=(uint8_t*)malloc(size*sizeof(uint8_t));
-	memcpy(packet, &s_ethpkt, size*sizeof(uint8_t));
-
+	uint8_t* s_packet=(uint8_t*)malloc(size*sizeof(uint8_t));
+	memcpy(s_packet, &s_ethpkt, size*sizeof(uint8_t));
+	
 	//send packet	
   	char* dev = argv[1];
  	char errbuf[PCAP_ERRBUF_SIZE];
@@ -144,11 +144,48 @@ int main(int argc, char* argv[])
     		fprintf(stderr, "couldn't open device %s: %s\n", dev, errbuf);
 		return -1;
   	}
-	if(pcap_sendpacket(handle, packet, size))
+	
+	if(pcap_sendpacket(handle, (uint8_t*)s_packet, size))
 	{
 		printf("Failed send packet\n");
 		return -1;
 	}
+
+
+	//receive and parse packet
+	while(1)
+	{
+		int j;
+		const uint8_t* r_packet;
+		struct pcap_pkthdr* header;
+		struct ethhdr* r_ethhdr;
+		struct arphdr* t_arphdr;
+		int res = pcap_next_ex(handle, &header, &r_packet);
+		if (res == 0) continue;
+		if (res == -1 || res == -2) break;
+	
+		r_ethhdr = (struct ethhdr*)(r_packet);
+		if(t_arphdr!=NULL && ntohs(r_ethhdr->ether_type) == 0x0806)
+		{
+			memcpy(t_mac, r_ethhdr->ether_shost, 6*sizeof(uint8_t));	//target mac 저장
+			printf("target MAC : ");
+			for(i=0;i<6;i++)
+        		{
+                		if(i<5)
+		                        printf("%02x:",(unsigned char)t_mac[i]);
+                		else
+		                        printf("%02x\n",(unsigned char)t_mac[i]);
+        		}
+			break;
+		}
+    		else
+			continue;
+	}
+
+	
+	
+
+	
 
 
 
