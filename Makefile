@@ -4,7 +4,7 @@ send_arp: main.o
 	g++ -g -o send_arp main.o -lpcap
 
 main.o:
-	g++ -g -c -o main.o main.cpp
+	g++ -g -c -o main.o main.c
 
 clean:
 	rm -f send_arp
