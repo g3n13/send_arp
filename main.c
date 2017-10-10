@@ -159,13 +159,13 @@ int main(int argc, char* argv[])
 		const uint8_t* r_packet;
 		struct pcap_pkthdr* header;
 		struct ethhdr* r_ethhdr;
-		struct arphdr* t_arphdr;
+		//struct arphdr* t_arphdr;
 		int res = pcap_next_ex(handle, &header, &r_packet);
 		if (res == 0) continue;
 		if (res == -1 || res == -2) break;
 	
 		r_ethhdr = (struct ethhdr*)(r_packet);
-		if(t_arphdr!=NULL && ntohs(r_ethhdr->ether_type) == 0x0806)
+		if(r_ethhdr != NULL && ntohs(r_ethhdr->ether_type) == 0x0806)
 		{
 			memcpy(t_mac, r_ethhdr->ether_shost, 6*sizeof(uint8_t));	//target mac 저장
 			printf("get target MAC : ");
